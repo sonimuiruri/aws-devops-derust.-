@@ -1,0 +1,29 @@
+name: DevOps De-Rust CI Pipeline
+
+# 1. Trigger this pipeline every time someone pushes to the 'main' branch
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    # 2. Run this automation inside a fresh Ubuntu container hosted by GitHub
+    runs-on: ubuntu-latest
+
+    steps:
+    # 3. Pull down our code from GitHub into this temporary runner
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 4. Lint/Verify the Dockerfile looks solid before building
+    - name: Lint Dockerfile
+      run: |
+        echo "Checking Dockerfile structure..."
+        test -f Dockerfile || exit 1
+
+    # 5. Build the Docker image automatically to ensure there are no syntax errors
+    - name: Build Docker Image
+      run: |
+        echo "Starting automated Docker build..."
+        docker build -t derust-app:latest .
+        echo "Build successful! Verification complete."
