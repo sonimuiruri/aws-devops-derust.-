@@ -1,29 +1,40 @@
-name: DevOps De-Rust CI Pipeline
+name: DevOps De-Rust CI/CD to AWS
 
-# 1. Trigger this pipeline every time someone pushes to the 'main' branch
 on:
   push:
     branches: [ "main" ]
 
+env:
+  AWS_REGION: us-east-1                  
+  ECR_REPOSITORY: derust-app             
+
 jobs:
-  build-and-test:
-    # 2. Run this automation inside a fresh Ubuntu container hosted by GitHub
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-    # 3. Pull down our code from GitHub into this temporary runner
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # 4. Lint/Verify the Dockerfile looks solid before building
-    - name: Lint Dockerfile
-      run: |
-        echo "Checking Dockerfile structure..."
-        test -f Dockerfile || exit 1
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-    # 5. Build the Docker image automatically to ensure there are no syntax errors
-    - name: Build Docker Image
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, Tag, and Push Image to ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
       run: |
-        echo "Starting automated Docker build..."
-        docker build -t derust-app:latest .
-        echo "Build successful! Verification complete."
+        echo "Building the Docker image for AWS..."
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        
+        echo "Pushing the image to Amazon ECR..."
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
